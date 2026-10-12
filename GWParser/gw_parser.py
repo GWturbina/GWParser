@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 # ===========================================================================
 # GW PARSER v3.2 (12.10.2026) - сборщик ищущих из Telegram-чатов.
+# v3.3 (12.10.2026): МЕНЮ ПРИ КАЖДОМ ЗАПУСКЕ значка - собрать сейчас, живой режим,
+#   перечитать за неделю, сменить страну. Ярлыки в Пуске работают как раньше.
 # v3.2: ПРОГРАММА-УСТАНОВЩИК. Собирается на GitHub в GWParser_Setup.exe:
 #   ставится как обычная программа, Python не нужен. Ключи Telegram - клубные,
 #   вшиваются при сборке (файл _club_keys.py делает сборка из секретов GitHub).
@@ -123,7 +125,7 @@ ARG = next((a for a in ARGS if a not in ('all', 'live', 'setup') and '=' not in 
 # v2.4: страна и направления из ярлыка:  c=DE,PL  d=health
 ARG_C = next((a.split('=', 1)[1] for a in ARGS if a.startswith('c=')), '')
 ARG_D = next((a.split('=', 1)[1] for a in ARGS if a.startswith('d=')), '')
-VERSION = '3.2'
+VERSION = '3.3'
 SUFFIX = ('.' + ARG) if ARG else ''
 CONFIG = os.path.join(HERE, 'config%s.ini' % SUFFIX)
 if not os.path.exists(CONFIG) and ARG:
@@ -460,7 +462,7 @@ def setup_wizard():
     txt = setline(txt, 'package', package)
     with open(CONFIG, 'w', encoding='utf-8') as f:
         f.write(txt)
-    print('Сохранено: ищу - %s. Поменять потом: ярлык «Поиск контактов - выбрать страну».' % package)
+    print('Сохранено: ищу - %s. Поменять потом: пункт 4 в меню при запуске.' % package)
     print()
 
 def ensure_config():
@@ -1315,7 +1317,7 @@ async def live():
         await asyncio.sleep(cfg['live_minutes'] * 60)
 
 
-if __name__ == '__main__':
+def _run_once():
     try:
         asyncio.run(live() if LIVE else harvest())
     except KeyboardInterrupt:
@@ -1326,8 +1328,75 @@ if __name__ == '__main__':
         print()
         print('Ошибка: %s' % e)
         print('Сфотографируйте это окно и пришлите тому, кто дал вам программу.')
-    if FROZEN:
+
+
+# v3.3 (12.10.2026, решение Автора): меню при каждом запуске значка - чтобы не искать
+# ярлыки в Пуске. Запуск с параметром (live / all / setup) - сразу нужный режим, как раньше.
+def _current_place():
+    try:
+        m = re.search(r'(?m)^package\s*=\s*(.*)$', open(CONFIG, encoding='utf-8').read())
+        v = (m.group(1).strip() if m else '')
+        return v or 'не выбрана'
+    except Exception:
+        return 'не выбрана'
+
+
+def start_menu():
+    print()
+    print('=' * 60)
+    print('  ПОИСК КОНТАКТОВ GlobalWay · версия %s' % VERSION)
+    print('  Где ищу: %s' % _current_place())
+    print('=' * 60)
+    print('  1 - Собрать людей сейчас')
+    print('  2 - Живой режим (сам проверяет чаты каждые %s минут, окно не закрывать)' % _live_minutes())
+    print('  3 - Перечитать за неделю (первый запуск в новой стране)')
+    print('  4 - Сменить страну')
+    print('  0 - Выход')
+    while True:
+        a = input('Впишите цифру и нажмите Enter: ').strip()
+        if a in ('0', '1', '2', '3', '4'):
+            return a
+
+
+def _live_minutes():
+    try:
+        m = re.search(r'(?m)^live_minutes\s*=\s*(\d+)', open(CONFIG, encoding='utf-8').read())
+        return int(m.group(1)) if m else 20
+    except Exception:
+        return 20
+
+
+if __name__ == '__main__':
+    if FROZEN and not ARGS:
         try:
-            input('\nНажмите Enter, чтобы закрыть окно.')
+            ensure_config()          # первый запуск: сначала страна, потом меню
         except Exception:
             pass
+        while True:
+            try:
+                ch = start_menu()
+            except (KeyboardInterrupt, EOFError):
+                break
+            if ch == '0':
+                break
+            if ch == '4':
+                try:
+                    setup_wizard()
+                except (KeyboardInterrupt, EOFError):
+                    pass
+                continue
+            LIVE = (ch == '2')
+            FULL = (ch == '3')
+            _run_once()
+            LIVE = FULL = False
+            try:
+                input('\nНажмите Enter - вернуться в меню.')
+            except (KeyboardInterrupt, EOFError):
+                break
+    else:
+        _run_once()
+        if FROZEN:
+            try:
+                input('\nНажмите Enter, чтобы закрыть окно.')
+            except Exception:
+                pass
