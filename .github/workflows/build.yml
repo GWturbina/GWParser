@@ -4,7 +4,7 @@
 #   TG_API_ID   - число api_id клубного приложения с my.telegram.org
 #   TG_API_HASH - строка api_hash оттуда же
 # Готовый установщик появляется в Releases, ссылка для сайта всегда одна:
-#   https://github.com/<владелец>/GWParser/releases/latest/download/GWParser_Setup.exe
+#   https://github.com/GWturbina/GWParser/releases/latest/download/GWParser_Setup.exe
 name: Собрать установщик
 
 on:
@@ -16,6 +16,9 @@ permissions:
 jobs:
   build:
     runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: GWParser   # файлы программы лежат в папке GWParser репозитория
     steps:
       - uses: actions/checkout@v4
 
@@ -61,5 +64,5 @@ jobs:
           tag_name: v3.2.${{ github.run_number }}
           name: Поиск контактов 3.2.${{ github.run_number }}
           make_latest: true
-          files: dist/GWParser_Setup.exe
+          files: GWParser/dist/GWParser_Setup.exe
           body: Установщик программы «Поиск контактов» для Windows. Скачать, запустить, «Установить».
